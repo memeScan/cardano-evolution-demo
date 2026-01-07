@@ -29,7 +29,6 @@ const main = async () => {
     console.log("Derived Address:", addressStr);
     console.log("✅ Client created successfully");
 
-    /*
     const tx = await client
       .newTx()
       .payToAddress({
@@ -41,10 +40,29 @@ const main = async () => {
       .build();
 
     const signed = await tx.sign();
+
+    console.log("Submitting transaction...");
+    const startTime = Date.now();
     const hash = await signed.submit();
     console.log("Transaction submitted:", hash);
-    console.log(`🔍 Check on Explorer: https://preprod.cardanoscan.io/transaction/${hash}`);
-    */
+
+    // Wait for confirmation (checks every 5 seconds by default)
+    console.log("Waiting for confirmation...");
+    const confirmed = await client.awaitTx(hash);
+    const endTime = Date.now();
+
+    if (confirmed) {
+      const duration = (endTime - startTime) / 1000;
+      console.log(
+        `✅ Transaction confirmed! Time taken: ${duration.toFixed(2)}s`
+      );
+    } else {
+      console.log("Transaction not found");
+    }
+
+    console.log(
+      `🔍 Check on Explorer: https://preprod.cardanoscan.io/transaction/${hash}`
+    );
 
     console.log("Fetching Wallet UTXOs...");
     const utxos = await client.getWalletUtxos();
