@@ -285,3 +285,28 @@ const tx = await client
 const signed = await tx.sign();
 await signed.submit();
 ```
+
+## 12. 进阶: 签署外部构建的交易 (如 MinSwap)
+
+当你使用 DEX 聚合器 (如 MinSwap Aggregator) 时，API 通常会返回一个 **未签名的交易 CBOR** (Hex 字符串)。
+你需要使用 SDK 将其反序列化为交易对象，然后再进行签名。
+
+```typescript
+import { Core } from "@evolution-sdk/evolution";
+
+// 假设这是从 MinSwap API 获取到的 CBOR Hex 字符串
+const cborHex = "84a50081825820...";
+
+// 1. 反序列化 CBOR 为 Transaction 对象
+// 注意：如果 API 返回的是 Base64，需要先转换为 Hex
+const tx = Core.Transaction.fromCBORHex(cborHex);
+
+// 2. 签名交易
+// client.signTx 接受 Transaction 对象
+const signedTx = await client.signTx(tx);
+
+// 3. 提交上链
+const hash = await signedTx.submit();
+
+console.log("Swap 交易已提交:", hash);
+```
