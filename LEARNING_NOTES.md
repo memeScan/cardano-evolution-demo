@@ -310,3 +310,76 @@ const hash = await signedTx.submit();
 
 console.log("Swap 交易已提交:", hash);
 ```
+
+## 13. 查询代币余额与解析 MultiAsset
+
+在查询钱包余额时，除了 `lovelace` (ADA)，UTXO 的 `assets` 字段还可能包含 `multiAsset` (Native Tokens)。解析它需要处理嵌套的 Map 结构。
+
+```typescript
+// 解析逻辑示例
+for (const utxo of utxos) {
+  const assets = utxo.assets;
+
+  // 1. 处理 ADA
+  if (assets.lovelace) {
+    const adaAmount = BigInt(assets.lovelace);
+    // ...
+  }
+
+  // 2. 处理 Native Tokens (MultiAsset)
+  if (assets.multiAsset && assets.multiAsset.map) {
+    // 遍历 PolicyID
+    for (const [policyId, tokens] of Object.entries(assets.multiAsset.map)) {
+      // 遍历 Token Name
+      for (const [tokenNameObj, amount] of Object.entries(tokens)) {
+        // Token Name 通常是 Hex 编码，但在 SDK 中可能被解析为拥有 bytes 属性的对象
+        let nameHex = "";
+        if (tokenNameObj && typeof tokenNameObj === "object" && "bytes" in tokenNameObj) {
+          nameHex = Buffer.from((tokenNameObj as any).bytes).toString("hex");
+        } else {
+          nameHex = String(tokenNameObj);
+        }
+
+        const assetId = `${policyId}.${nameHex}`;
+        // ...
+      }
+    }
+  }
+}
+```
+
+## 14. UTXO 碎片整理 (Token Consolidation)
+
+**问题**: 当你收到多次代币转账时，你的钱包里可能会有多个 UTXO，每个都包含一种代币和为了维持该 UTXO 而被迫锁定的 Minimum ADA (通常约 2 ADA)。
+例如：如果你有 10 个 UTXO，每个都带一点 Token，那么你就相当于有 `10 * 2 = 20 ADA` 被锁定了，无法用于支付交易费或购买新资产。
+
+**解决方案 (Unfrack)**: 构建一笔交易，将所有这些零散的 UTXO 作为**输入**，发送给**自己**。
+这将把所有代币合并到一个新的单一 UTXO 中，只需要一份 Min-ADA (约 1.5 ADA)，从而释放其余的 ADA。
+
+```typescript
+// 简单的合并脚本逻辑
+const main = async () => {
+    // 1. 获取所有 UTXO
+    const utxos = await client.getWalletUtxos();
+
+    // 2. 构建交易: 收集所有 UTXO 作为输入
+    // 不指定 payToAddress 输出，剩下的资金会自动作为"找零"回到自己钱包
+    const tx = client.newTx()
+      .collectFrom({ inputs: utxos });
+
+    // 3. 签名并提交
+    const signed = await tx.build().then(t => t.sign());
+    await signed.submit();
+};
+```
+
+## 15. 理解 Min-ADA 与可用余额 ("被占用"的误区)
+
+在 Cardano 上，如果你看到一个 UTXO 包含 `18 ADA` 和 `1000 Token`，这**不代表**这 18 个 ADA 都被 Token "吃掉"了。
+
+- **Min-ADA (锁定)**: 约 1.3 - 1.5 ADA。这是维持这个 UTXO 存在所必须的“押金”。
+- **可用余额 (Free)**: 约 16.5 ADA。这是完全自由的。
+
+当你需要支付 5 ADA 时，钱包会使用这个 UTXO，拆出 5 ADA 发送出去，剩下的 11.5 ADA + Token + Min-ADA 会找零回到新 UTXO 中。
+
+**结论**: 只要你定期进行 Consolidation (合并)，除了那极少量的 Min-ADA，你的大部分资金都是流动的。

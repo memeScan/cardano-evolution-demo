@@ -6,10 +6,10 @@ dotenv.config();
 const main = async () => {
   try {
     const client = createClient({
-      network: "preprod",
+      network: "mainnet",
       provider: {
         type: "blockfrost",
-        baseUrl: "https://cardano-preprod.blockfrost.io/api/v0",
+        baseUrl: "https://cardano-mainnet.blockfrost.io/api/v0",
         projectId: process.env.BLOCKFROST_API_KEY!,
       },
       wallet: {
@@ -29,43 +29,44 @@ const main = async () => {
     console.log("Derived Address:", addressStr);
     console.log("✅ Client created successfully");
 
-    const tx = await client
-      .newTx()
-      .payToAddress({
-        address: Core.Address.fromBech32(
-          "addr_test1qrjzxthmfzm5vcrzm0q3653fl9kqe7zllw4gtr55gfcrjjkk9n0skqk0nx9pxsgmnzu4xnlt6fe36eve90t0qvyl0l8q2qzlez"
-        ),
-        assets: Core.Assets.fromLovelace(2_000_000n),
-      })
-      .build();
+    // const tx = await client
+    //   .newTx()
+    //   .payToAddress({
+    //     address: Core.Address.fromBech32(
+    //       "addr_test1qrjzxthmfzm5vcrzm0q3653fl9kqe7zllw4gtr55gfcrjjkk9n0skqk0nx9pxsgmnzu4xnlt6fe36eve90t0qvyl0l8q2qzlez"
+    //     ),
+    //     assets: Core.Assets.fromLovelace(2_000_000n),
+    //   })
+    //   .build();
 
-    const signed = await tx.sign();
+    // const signed = await tx.sign();
 
-    console.log("Submitting transaction...");
-    const startTime = Date.now();
-    const hash = await signed.submit();
-    console.log("Transaction submitted:", hash);
+    // console.log("Submitting transaction...");
+    // const startTime = Date.now();
+    // const hash = await signed.submit();
+    // console.log("Transaction submitted:", hash);
 
-    // Wait for confirmation (checks every 5 seconds by default)
-    console.log("Waiting for confirmation...");
-    const confirmed = await client.awaitTx(hash);
-    const endTime = Date.now();
+    // // Wait for confirmation (checks every 5 seconds by default)
+    // console.log("Waiting for confirmation...");
+    // const confirmed = await client.awaitTx(hash);
+    // const endTime = Date.now();
 
-    if (confirmed) {
-      const duration = (endTime - startTime) / 1000;
-      console.log(
-        `✅ Transaction confirmed! Time taken: ${duration.toFixed(2)}s`
-      );
-    } else {
-      console.log("Transaction not found");
-    }
+    // if (confirmed) {
+    //   const duration = (endTime - startTime) / 1000;
+    //   console.log(
+    //     `✅ Transaction confirmed! Time taken: ${duration.toFixed(2)}s`
+    //   );
+    // } else {
+    //   console.log("Transaction not found");
+    // }
 
-    console.log(
-      `🔍 Check on Explorer: https://preprod.cardanoscan.io/transaction/${hash}`
-    );
+    // console.log(
+    //   `🔍 Check on Explorer: https://preprod.cardanoscan.io/transaction/${hash}`
+    // );
 
     console.log("Fetching Wallet UTXOs...");
     const utxos = await client.getWalletUtxos();
+    console.log("UTXOs found:", utxos);
     console.log("UTXOs found:", utxos.length);
 
     if (utxos.length > 0) {

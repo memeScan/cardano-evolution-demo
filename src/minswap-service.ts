@@ -217,8 +217,8 @@ const main = async () => {
 
   const quoteResult = await minswapService.quote({
     from: "lovelace",
-    to: "29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c64d494e",
-    amount: "1000000",
+    to: "0691b2fecca1ac4f53cb6dfb00b7013e561d1f34403b957cbb5af1fa4e49474854",
+    amount: "100000",
     slippage: 0.5,
   });
 
