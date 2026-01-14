@@ -383,3 +383,49 @@ const main = async () => {
 当你需要支付 5 ADA 时，钱包会使用这个 UTXO，拆出 5 ADA 发送出去，剩下的 11.5 ADA + Token + Min-ADA 会找零回到新 UTXO 中。
 
 **结论**: 只要你定期进行 Consolidation (合并)，除了那极少量的 Min-ADA，你的大部分资金都是流动的。
+
+## 16. 高频交易(HFT)与 UTXO 策略：合并还是并发？
+
+**问题**: 在高频套利中，频繁买入代币是否应该在每次交易前执行 UTXO 合并，以避免 Min-ADA 占用过多资金？
+
+**结论**: **除了维护期，绝对不要在每次交易前合并。**
+
+### 1. 速度与并发 (Speed & Concurrency)
+- **并发性**: Cardano 的 UTXO 模型天然支持并发。每个 UTXO 就像一个无需锁的线程。如果你将资金拆分为 5 个 UTXO，你可以理论上同时发起 5 笔互不干扰的套利交易。
+- **合并的代价**: 如果你将所有资金合并为 1 个 UTXO，你实际上是将系统降级为单线程。在 UTXO 处于 pending 状态时，你必须等待或使用复杂的 Chaining 技术，这对争分夺秒的套利是致命的。
+
+### 2. Min-ADA 的生命周期
+在套利策略 (Buy -> Sell) 中，Min-ADA 的锁定只是暂时的：
+1. **Buy**: 获得 Token，锁定 ~2 ADA。
+2. **Sell**: 卖出 Token，UTXO 被销毁和重组，之前锁定的 2 ADA 自动释放回你的余额。
+因此，只要策略是循环的，Min-ADA 不会造成永久性的资金沉淀。
+
+### 3. 最佳实践策略
+采用 **"空闲维护" (Lazy Maintenance)** 模式：
+- **不要**：在交易关键路径上执行合并。
+- **要**：在机器人空闲或检测到无套利机会时，检查 UTXO 状态。
+  - 如果 UTXO 数量过多 (> 50)，导致扫描变慢 -> **合并**。
+  - 如果同一种 Token 过于分散 (> 5 个 UTXO 都有该 Token) -> **合并该 Token**。
+  - 如果资金过于集中于 1 个 UTXO，导致无法并发 -> **拆分 (Split)**。
+
+### 4. 维护逻辑伪代码参考
+
+```typescript
+// 伪代码参考: 机器人维护循环
+if (botIsIdle && !arbitrageOpportunityDetected) {
+  const utxos = await getUtxos();
+
+  // 触发条件 1: UTXO 太多，影响查询性能和构建效率
+  if (utxos.length > 50) {
+      console.log("垃圾回收: 合并 UTXO");
+      await runConsolidation(utxos);
+  }
+
+  // 触发条件 2: 同一种 Token 过于碎片化
+  // (比如有 5 个包含 "NIGHT" 代币的 UTXO，这才是真正的资金浪费)
+  if (countTokenUtxos(utxos, "NIGHT") > 3) {
+      console.log("Token 整理: 合并 NIGHT 代币");
+      await runTokenMerge(utxos, "NIGHT");
+  }
+}
+```
